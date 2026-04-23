@@ -3,16 +3,14 @@ const router = express.Router();
 const BranchService = require('../services/BranchService');
 const { authMiddleware, isSuperAdmin } = require('../middleware/auth');
 
-// POST /api/branches - Create Branch (8-step automation)
 router.post('/', authMiddleware, isSuperAdmin, async (req, res) => {
   try {
     const { name, city, address, adminName, adminEmail } = req.body;
 
-    // Validasi input
     if (!name || !city || !address) {
       return res.status(400).json({
         success: false,
-        message: 'Nama, kota, dan alamat harus diisi'
+        message: 'Name, city, and address are required'
       });
     }
 
@@ -25,26 +23,26 @@ router.post('/', authMiddleware, isSuperAdmin, async (req, res) => {
     };
 
     const result = await BranchService.createBranch(branchData, req.user.id);
-    
+
     if (!result.success) {
       return res.status(400).json(result);
     }
 
     res.status(201).json(result);
   } catch (error) {
-    console.error('Create branch error:', error);
+    console.error('Create branch controller error:', error);
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'An internal server error occurred while processing branch creation'
     });
   }
 });
 
-// GET /api/branches - Get all branches
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const result = await BranchService.getAllBranches();
-    
+
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -52,19 +50,19 @@ router.get('/', authMiddleware, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Get branches error:', error);
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'A server error occurred while retrieving branch data'
     });
   }
 });
 
-// GET /api/branches/:id - Get branch by ID
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const branchId = req.params.id;
     const result = await BranchService.getBranchById(branchId);
-    
+
     if (!result.success) {
       return res.status(404).json(result);
     }
@@ -72,21 +70,21 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Get branch error:', error);
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'A server error occurred while retrieving branch details'
     });
   }
 });
 
-// PUT /api/branches/:id - Update branch
 router.put('/:id', authMiddleware, isSuperAdmin, async (req, res) => {
   try {
     const branchId = req.params.id;
     const updateData = req.body;
 
     const result = await BranchService.updateBranch(branchId, updateData);
-    
+
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -94,9 +92,10 @@ router.put('/:id', authMiddleware, isSuperAdmin, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Update branch error:', error);
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'A server error occurred while updating the branch'
     });
   }
 });
