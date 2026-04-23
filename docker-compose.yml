@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: gymcloud-db
+    environment:
+      POSTGRES_DB: gymcloud_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: gymcloud_pass_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - gymcloud-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Server (Node.js)
+  api:
+    build: .
+    container_name: gymcloud-api
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: gymcloud_db
+      DB_USER: postgres
+      DB_PASSWORD: gymcloud_pass_2024
+      JWT_SECRET: gymcloud_super_secret_jwt_key_2024_change_this_in_production
+      PORT: 3000
+      NODE_ENV: production
+      STORAGE_PATH: /app/storage
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gymcloud-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  gymcloud-network:
+    driver: bridge

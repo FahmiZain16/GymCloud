@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GymCloud - Super Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-page">
+      <h2>🏋️ GymCloud Login</h2>
+      <div id="loginAlert"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            id="loginEmail"
+            required
+            placeholder="admin@gymcloud.com"
+          />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPassword" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%">
+          Login
+        </button>
+      </form>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="container hidden">
+      <!-- Header -->
+      <div class="header">
+        <h1>🏋️ GymCloud - Super Admin Dashboard</h1>
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">SA</div>
+          <div>
+            <div style="font-weight: 600" id="userName">Super Admin</div>
+            <div style="font-size: 12px; color: #999" id="userEmail">
+              admin@gymcloud.com
+            </div>
+          </div>
+          <button class="btn btn-logout" onclick="logout()">Logout</button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="dashboard-content">
+        <div class="stat-card">
+          <h3>Total Cabang</h3>
+          <div class="number" id="totalBranches">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Total Member</h3>
+          <div class="number" id="totalMembers">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Cabang Aktif</h3>
+          <div class="number" id="activeBranches">0</div>
+        </div>
+      </div>
+
+      <!-- Branches Section -->
+      <div class="branches-section">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          "
+        >
+          <h2>Daftar Cabang</h2>
+          <button class="btn btn-primary" onclick="openCreateModal()">
+            + Tambah Cabang Baru
+          </button>
+        </div>
+        <div id="branchesContainer">
+          <div class="loading">
+            <div class="spinner"></div>
+            Memuat data...
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Logs -->
+      <div class="logs-section">
+        <h2 style="margin-bottom: 20px">Activity Logs (Latest)</h2>
+        <div id="logsContainer">
+          <div class="loading">
+            <div class="spinner"></div>
+            Memuat logs...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Branch Modal -->
+    <div id="createModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Tambah Cabang Baru</h2>
+          <button class="close-btn" onclick="closeCreateModal()">
+            &times;
+          </button>
+        </div>
+        <div id="modalAlert"></div>
+        <form id="createBranchForm">
+          <div class="form-group">
+            <label>Nama Cabang *</label>
+            <input
+              type="text"
+              id="branchName"
+              required
+              placeholder="Gym GymCloud Jakarta Selatan"
+            />
+          </div>
+          <div class="form-group">
+            <label>Kota *</label>
+            <input type="text" id="branchCity" required placeholder="Jakarta" />
+          </div>
+          <div class="form-group">
+            <label>Alamat Lengkap *</label>
+            <textarea
+              id="branchAddress"
+              rows="3"
+              required
+              placeholder="Jl. Sudirman No. 123"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>Nama Admin Cabang (Opsional)</label>
+            <input
+              type="text"
+              id="adminName"
+              placeholder="Auto-generated jika kosong"
+            />
+          </div>
+          <div class="form-group">
+            <label>Email Admin Cabang (Opsional)</label>
+            <input
+              type="email"
+              id="adminEmail"
+              placeholder="Auto-generated jika kosong"
+            />
+          </div>
+          <div style="display: flex; gap: 10px">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              Buat Cabang (8 Langkah Otomatis)
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="closeCreateModal()"
+            >
+              Batal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3000/api";
+      let authToken = localStorage.getItem("gymcloud_token");
+
+      // Check if logged in
+      if (authToken) {
+        document.getElementById("loginPage").classList.add("hidden");
+        document.getElementById("dashboard").classList.remove("hidden");
+        loadDashboard();
+      }
+
+      // Login
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const email = document.getElementById("loginEmail").value;
+          const password = document.getElementById("loginPassword").value;
+
+          try {
+            const response = await fetch(`${API_URL}/auth/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              localStorage.setItem("gymcloud_token", result.data.token);
+              localStorage.setItem(
+                "gymcloud_user",
+                JSON.stringify(result.data.user),
+              );
+              authToken = result.data.token;
+
+              document.getElementById("loginPage").classList.add("hidden");
+              document.getElementById("dashboard").classList.remove("hidden");
+              loadDashboard();
+            } else {
+              showAlert("loginAlert", result.message, "error");
+            }
+          } catch (error) {
+            showAlert("loginAlert", "Gagal terhubung ke server", "error");
+          }
+        });
+
+      // Logout
+      function logout() {
+        localStorage.removeItem("gymcloud_token");
+        localStorage.removeItem("gymcloud_user");
+        location.reload();
+      }
+
+      // Load Dashboard
+      async function loadDashboard() {
+        const user = JSON.parse(localStorage.getItem("gymcloud_user"));
+        document.getElementById("userName").textContent = user.name;
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("userAvatar").textContent = user.name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase();
+
+        loadBranches();
+        loadLogs();
+      }
+
+      // Load Branches
+      async function loadBranches() {
+        try {
+          const response = await fetch(`${API_URL}/branches`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            const branches = result.data;
+
+            // Update stats
+            document.getElementById("totalBranches").textContent =
+              branches.length;
+            document.getElementById("activeBranches").textContent =
+              branches.filter((b) => b.status === "active").length;
+            document.getElementById("totalMembers").textContent =
+              branches.reduce(
+                (sum, b) => sum + parseInt(b.total_members || 0),
+                0,
+              );
+
+            // Display branches
+            const container = document.getElementById("branchesContainer");
+            if (branches.length === 0) {
+              container.innerHTML =
+                '<p style="text-align: center; color: #999;">Belum ada cabang. Klik tombol "Tambah Cabang Baru" untuk memulai.</p>';
+            } else {
+              container.innerHTML = branches
+                .map(
+                  (branch) => `
+                            <div class="branch-card">
+                                <div style="display: flex; justify-content: space-between; align-items: start;">
+                                    <h3>${branch.name}</h3>
+                                    <span class="badge ${branch.status === "active" ? "badge-success" : "badge-warning"}">
+                                        ${branch.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <div class="branch-info">
+                                    <div class="branch-info-item">
+                                        <strong>📍 Kota:</strong> ${branch.city}
+                                    </div>
+                                    <div class="branch-info-item">
+                                        <strong>👥 Total Member:</strong> ${branch.total_members || 0}
+                                    </div>
+                                    <div class="branch-info-item">
+                                        <strong>👨‍💼 Total Staff:</strong> ${branch.total_admins || 0}
+                                    </div>
+                                    <div class="branch-info-item">
+                                        <strong>📅 Dibuat:</strong> ${new Date(branch.created_at).toLocaleDateString("id-ID")}
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 13px; color: #666;">
+                                    <strong>Alamat:</strong> ${branch.address}
+                                </div>
+                            </div>
+                        `,
+                )
+                .join("");
+            }
+          }
+        } catch (error) {
+          console.error("Error loading branches:", error);
+        }
+      }
+
+      // Load Logs
+      async function loadLogs() {
+        try {
+          const response = await fetch(`${API_URL}/logs?limit=20`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            const logs = result.data;
+            const container = document.getElementById("logsContainer");
+
+            if (logs.length === 0) {
+              container.innerHTML =
+                '<p style="text-align: center; color: #999;">Belum ada aktivitas.</p>';
+            } else {
+              container.innerHTML = logs
+                .map(
+                  (log) => `
+                            <div class="log-item">
+                                <div class="log-action">${log.action}</div>
+                                <div style="margin: 5px 0;">${log.description}</div>
+                                <div class="log-time">
+                                    ${log.user_name || "System"} • ${log.branch_name || "Global"} • 
+                                    ${new Date(log.created_at).toLocaleString("id-ID")}
+                                </div>
+                            </div>
+                        `,
+                )
+                .join("");
+            }
+          }
+        } catch (error) {
+          console.error("Error loading logs:", error);
+        }
+      }
+
+      // Open/Close Modal
+      function openCreateModal() {
+        document.getElementById("createModal").classList.add("active");
+        document.getElementById("createBranchForm").reset();
+        document.getElementById("modalAlert").innerHTML = "";
+      }
+
+      function closeCreateModal() {
+        document.getElementById("createModal").classList.remove("active");
+      }
+
+      // Create Branch
+      document
+        .getElementById("createBranchForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const formData = {
+            name: document.getElementById("branchName").value,
+            city: document.getElementById("branchCity").value,
+            address: document.getElementById("branchAddress").value,
+            adminName: document.getElementById("adminName").value || null,
+            adminEmail: document.getElementById("adminEmail").value || null,
+          };
+
+          try {
+            const response = await fetch(`${API_URL}/branches`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${authToken}`,
+              },
+              body: JSON.stringify(formData),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              showAlert(
+                "modalAlert",
+                `
+                        ✅ ${result.message}<br><br>
+                        <strong>Credential Admin Cabang:</strong><br>
+                        Email: ${result.data.admin.email}<br>
+                        Password: ${result.data.admin.temporaryPassword}<br><br>
+                        <small>⚠️ Simpan credential ini! Password telah dikirim ke email admin.</small>
+                    `,
+                "success",
+              );
+
+              document.getElementById("createBranchForm").reset();
+
+              setTimeout(() => {
+                closeCreateModal();
+                loadBranches();
+                loadLogs();
+              }, 5000);
+            } else {
+              showAlert("modalAlert", result.message, "error");
+            }
+          } catch (error) {
+            showAlert("modalAlert", "Gagal terhubung ke server", "error");
+          }
+        });
+
+      // Show Alert
+      function showAlert(containerId, message, type) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+      }
+    </script>
+  </body>
+</html>
