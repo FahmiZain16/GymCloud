@@ -1,413 +1,192 @@
-# 🏋️ GymCloud - Multi-Branch SaaS Platform
+# 🏋️ GymCloud - Multi-Branch SaaS Platform (Backend API)
 
-Platform manajemen gym berbasis cloud dengan sistem multi-cabang (multi-tenant).
+Proyek ini adalah purwarupa (*prototype*) layanan *Software as a Service* (SaaS) multi-tenant untuk manajemen gym berbasis *cloud*, yang dikembangkan secara spesifik untuk memenuhi tugas **Mini Project Komputasi Awan**.
+
+Fokus utama repositori ini adalah pada **logika operasional backend**, **Operations as a Code (OaC)**, dan **logical data isolation**, sehingga aplikasi dibangun tanpa menggunakan antarmuka grafis (GUI) manual dan diuji murni melalui *REST API endpoints*.
+
+---
 
 ## 📋 Fitur Utama
 
-### ✅ Create Branch (Flow Otomatisasi - 8 Langkah)
-Ketika Super Admin membuat cabang baru, sistem otomatis menjalankan:
+### ✅ 1. Create Branch (Flow Otomatisasi Provisioning - 8 Langkah)
+Ketika Super Admin membuat cabang baru, sistem mempraktikkan konsep *dynamic tenant provisioning* dengan menjalankan 8 langkah otomatis secara transaksional. Jika satu langkah gagal, seluruh proses akan di-*rollback*.
 
-1. **Validasi Data** - Cek kelengkapan input
-2. **Backend Validasi** - Validasi di server
-3. **Simpan ke Database** - Insert data cabang
-4. **Buat Admin Cabang** - Generate akun admin otomatis
-5. **Buat Membership Plan** - 3 paket default (Bulanan, 3 Bulan, 6 Bulan)
-6. **Buat Folder Storage** - Struktur folder untuk dokumen cabang
-7. **Activity Log** - Catat semua aktivitas
-8. **Kirim Email** - Credential login ke email admin cabang
+1. **Validasi Data** - Mengecek kelengkapan input HTTP *request*.
+2. **Backend Validasi** - Memastikan integritas data di level *server*.
+3. **Simpan ke Database** - Menyimpan profil cabang baru ke PostgreSQL.
+4. **Buat Admin Cabang** - Meng-*generate* akun administrator khusus untuk cabang tersebut secara otomatis.
+5. **Buat Membership Plan** - Meng-*generate* 3 paket keanggotaan bawaan (Bulanan, 3 Bulan, 6 Bulan).
+6. **Buat Folder Storage (OaC)** - Mengeksekusi otomatisasi penyediaan ruang kerja/penyimpanan terisolasi (`/storage/branch_id`) menggunakan Node.js `fs.promises`.
+7. **Activity Log** - Mencatat riwayat operasional ke dalam database (*audit trail*).
+8. **Kirim Email** - Mengirimkan *credential login* otomatis ke email admin cabang (opsional melalui `nodemailer`).
 
-### 🔐 Authentication & Authorization
+### 🔒 2. Logical Data Isolation (Arsitektur Multi-Tenant)
+Sistem menggunakan model *Shared Schema, Shared Table*. Seluruh data (cabang, *member*, log) tersimpan dalam satu database yang sama, namun dipisahkan secara ketat di level logika menggunakan `branch_id`. Admin dari Cabang A tidak akan pernah bisa mengakses data atau log dari Cabang B.
+
+### 📝 3. Activity Logging (Audit Trail)
+Pencatatan otomatis seluruh aktivitas pengguna seperti login, logout, dan create branch sebagai bentuk fitur operasional *cloud*. Akses untuk melihat laporan log ini dilindungi oleh *Role-Based Access Control* (RBAC).
+
+### 🔐 4. Authentication & Authorization
 - JWT-based authentication
-- Role-based access control (Super Admin, Branch Admin)
-- Secure password hashing (bcrypt)
+- Role-based access control untuk Super Admin dan Branch Admin
+- Secure password hashing menggunakan `bcrypt`
 
-### 📊 Database
+### 📊 5. Database Layer
 - PostgreSQL dengan relasi lengkap
-- 6 tabel utama: users, branches, membership_plans, members, payments, activity_logs
-- Indexes untuk performa optimal
-
-### 🎨 Frontend Dashboard
-- Web-based dashboard untuk Super Admin
-- Responsive design
-- Real-time statistics
-- Activity logs monitoring
+- Tabel utama untuk users, branches, membership_plans, members, payments, dan activity_logs
+- Indexes untuk performa yang lebih baik
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Manual Setup)
 
-### Metode 1: Menggunakan Docker (Recommended)
+Karena proyek ini adalah *Backend API*, ikuti langkah-langkah instalasi berikut menggunakan Node.js dan PostgreSQL.
 
+### Prerequisites
+- Node.js v18 atau lebih baru
+- PostgreSQL 15 atau lebih baru
+- Postman, Insomnia, atau Thunder Client untuk pengujian API
+
+### Langkah Instalasi
+
+#### 1. Clone dan install dependencies
 ```bash
-# 1. Clone atau extract project
-cd gymcloud-backend
-
-# 2. Jalankan dengan Docker Compose
-docker-compose up -d
-
-# 3. Cek status
-docker-compose ps
-
-# 4. Lihat logs
-docker-compose logs -f api
-```
-
-**Akses aplikasi:**
-- API Server: http://localhost:3000
-- Frontend Dashboard: http://localhost:3000 (buka di browser)
-- Database: localhost:5432
-
-**Default Login:**
-- Email: `admin@gymcloud.com`
-- Password: (lihat di schema.sql atau gunakan hash yang di-generate)
-
----
-
-### Metode 2: Manual Setup
-
-#### Prerequisites
-- Node.js v18+ 
-- PostgreSQL 15+
-- npm atau yarn
-
-#### Langkah Instalasi
-
-**1. Install Dependencies**
-```bash
+git clone https://github.com/FahmiZain16/GymCloud.git
+cd GymCloud
 npm install
 ```
 
-**2. Setup Database**
-```bash
-# Buat database
-createdb gymcloud_db
+#### 2. Configure environment variables
+Buat file bernama `.env` di root direktori proyek dan isi dengan kredensial berikut, sesuaikan dengan database lokal Anda:
 
-# Import schema
-psql -d gymcloud_db -f schema.sql
-```
-
-**3. Configure Environment**
-```bash
-# Copy .env dan sesuaikan
-cp .env.example .env
-
-# Edit .env
-nano .env
-```
-
-Isi `.env`:
 ```env
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=gymcloud_db
 DB_USER=postgres
-DB_PASSWORD=your_password
+DB_PASSWORD=password_postgres_anda
 
-JWT_SECRET=your_super_secret_jwt_key
+# Security
+JWT_SECRET=rahasia_gymcloud_super_aman_123
+
+# Server & OaC Storage
 PORT=3000
 NODE_ENV=development
+STORAGE_PATH=./storage
 
-# Email (Optional - untuk kirim credential)
+# Email Configuration (Opsional untuk langkah 8)
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-
-STORAGE_PATH=./storage
+EMAIL_USER=
+EMAIL_PASSWORD=
 ```
 
-**4. Buat Super Admin**
-```sql
--- Login ke PostgreSQL
-psql -d gymcloud_db
+#### 3. Inisialisasi database (Operations as a Code)
+Sesuai aturan operasional tanpa GUI, jalankan skrip berikut satu kali untuk mengotomatisasi pembuatan tabel relasional di PostgreSQL.
 
--- Buat Super Admin (password: admin123)
-INSERT INTO users (name, email, password_hash, role) 
-VALUES (
-  'Super Admin', 
-  'admin@gymcloud.com', 
-  '$2b$10$qZ7.XvZxvzqKp6YRQ.gJkeO4RqJKZ3Q8X9XvZxvzqKp6YRQ.gJkeO',
-  'super_admin'
-);
-```
-
-**5. Jalankan Server**
 ```bash
-# Development mode
-npm run dev
-
-# Production mode
-npm start
+node init-db.js
 ```
 
-**6. Buka Frontend**
-Buka browser: `http://localhost:3000`
+#### 4. Jalankan API server
+```bash
+node server.js
+```
+
+Jika sukses, terminal akan memunculkan banner **"GymCloud API Server Running"** di port 3000.
 
 ---
 
-## 📁 Struktur Project
+## 📁 Struktur Project Inti
 
-```
-gymcloud-backend/
-├── config/
-│   └── database.js          # Database connection
+```text
+GymCloud/
 ├── middleware/
-│   └── auth.js              # JWT authentication
-├── services/
-│   ├── AuthService.js       # Login & JWT
-│   ├── BranchService.js     # Create Branch (8-step automation)
-│   └── LogService.js        # Activity logging
+│   └── auth.js             # Verifikasi JWT dan RBAC (isSuperAdmin)
 ├── routes/
-│   ├── auth.js              # Auth endpoints
-│   ├── branches.js          # Branch CRUD
-│   └── logs.js              # Activity logs
-├── public/
-│   └── index.html           # Frontend dashboard
-├── storage/                 # File storage (auto-created)
-│   ├── branch_1/
-│   ├── branch_2/
-│   └── ...
-├── server.js                # Main Express app
-├── schema.sql               # Database schema
-├── package.json
-├── Dockerfile
-├── docker-compose.yml
-└── .env
+│   ├── auth.js             # Endpoint login & logout
+│   ├── branches.js         # Endpoint pembuatan dan manajemen cabang
+│   └── logs.js             # Endpoint pemantauan audit trail
+├── services/
+│   ├── AuthService.js      # Logika JWT Token & fire-and-forget logs
+│   ├── BranchService.js    # Eksekusi transaksi 8 langkah Create Branch
+│   ├── init-storage.js     # OaC untuk isolasi direktori folder cabang
+│   └── LogService.js       # OaC untuk penulisan riwayat ke database
+├── init-db.js              # Skrip OaC inisialisasi tabel database awal
+├── database.js             # Koneksi PostgreSQL (pg Pool)
+├── server.js               # Resepsionis API Server (Main Entry)
+├── package.json            # Daftar dependencies
+└── .env                    # (Gitignored) Kredensial lingkungan
 ```
 
 ---
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints & Cara Pengujian
 
-### Authentication
-```
-POST   /api/auth/login       - Login
-GET    /api/auth/profile     - Get user profile (auth required)
-```
+Gunakan Postman untuk menguji endpoint di bawah ini pada `http://localhost:3000`.
 
-### Branches
-```
-POST   /api/branches         - Create branch (Super Admin only)
-GET    /api/branches         - Get all branches
-GET    /api/branches/:id     - Get branch by ID
-PUT    /api/branches/:id     - Update branch (Super Admin only)
+### 1. Authentication
+```http
+POST /api/auth/login     - Men-generate JWT Token
+POST /api/auth/logout    - Mencatat log logout pengguna
+GET  /api/auth/profile   - Mengambil data pengguna tersesi
 ```
 
-### Activity Logs
-```
-GET    /api/logs             - Get all logs (Super Admin only)
-GET    /api/logs/branch/:id  - Get logs by branch
-GET    /api/logs/user/:id    - Get logs by user
-```
-
----
-
-## 📝 Cara Menggunakan
-
-### 1. Login sebagai Super Admin
-```bash
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "admin@gymcloud.com",
-  "password": "admin123"
-}
+### 2. Branches (Provisioning)
+```http
+POST /api/branches/      - (Super Admin Only) Memicu 8 langkah OaC Create Branch otomatis
+GET  /api/branches/      - Mengambil daftar seluruh cabang
+GET  /api/branches/:id   - Mengambil detail cabang spesifik
+PUT  /api/branches/:id   - (Super Admin Only) Mengedit informasi cabang
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "message": "Login berhasil",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
-    "user": {
-      "id": 1,
-      "name": "Super Admin",
-      "email": "admin@gymcloud.com",
-      "role": "super_admin"
-    }
-  }
-}
-```
-
-### 2. Buat Cabang Baru (8 Langkah Otomatis)
-```bash
-POST /api/branches
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "GymCloud Jakarta Selatan",
-  "city": "Jakarta",
-  "address": "Jl. Sudirman No. 123, Jakarta Selatan",
-  "adminName": "Budi Santoso",
-  "adminEmail": "budi@gymcloud.com"
-}
-```
-
-Response:
-```json
-{
-  "success": true,
-  "message": "Branch berhasil dibuat dengan lengkap (8 langkah otomatis)",
-  "data": {
-    "branch": {
-      "id": 1,
-      "name": "GymCloud Jakarta Selatan",
-      "city": "Jakarta",
-      "address": "Jl. Sudirman No. 123, Jakarta Selatan",
-      "status": "active",
-      "created_at": "2024-01-15T10:30:00Z"
-    },
-    "admin": {
-      "id": 2,
-      "email": "budi@gymcloud.com",
-      "temporaryPassword": "Abc123XyZ!@#",
-      "name": "Budi Santoso"
-    },
-    "membershipPlans": 3,
-    "storagePath": "./storage/branch_1"
-  }
-}
-```
-
-**Yang terjadi di background:**
-- ✅ Branch tersimpan di database
-- ✅ Akun admin cabang dibuat
-- ✅ 3 paket membership default dibuat
-- ✅ Folder storage dibuat
-- ✅ Activity log dicatat
-- ✅ Email credential dikirim (jika konfigurasi email aktif)
-
-### 3. Lihat Daftar Cabang
-```bash
-GET /api/branches
-Authorization: Bearer <token>
-```
-
-### 4. Lihat Activity Logs
-```bash
-GET /api/logs?limit=50
-Authorization: Bearer <token>
+### 3. Activity Logs (Audit Trail)
+```http
+GET  /api/logs/                 - (Super Admin Only) Mengambil rekap seluruh aktivitas semua cabang
+GET  /api/logs/branch/:branchId - Mengambil aktivitas cabang secara terisolasi
+GET  /api/logs/user/:userId     - Mengambil log spesifik milik satu pengguna
 ```
 
 ---
 
-## 🎯 Testing dengan Frontend
+## 🔧 Troubleshooting Umum
 
-1. **Buka Dashboard**
-   - Browser: `http://localhost:3000`
-   
-2. **Login**
-   - Email: `admin@gymcloud.com`
-   - Password: `admin123`
+### invalid ELF header pada modul bcrypt
+Jika Anda berpindah dari Windows/Mac ke Linux dan menemui error ini saat menjalankan `server.js`, hapus folder modul dan instal ulang agar C++ bindings `bcrypt` disesuaikan dengan OS Anda.
 
-3. **Tambah Cabang**
-   - Klik tombol "Tambah Cabang Baru"
-   - Isi form (nama, kota, alamat)
-   - Klik "Buat Cabang (8 Langkah Otomatis)"
-   - Lihat credential admin yang ter-generate
+### Database Connection Error / role "postgres" does not exist
+Pastikan PostgreSQL menyala dan konfigurasi nama user serta password di file `.env` sudah sama persis dengan kredensial PostgreSQL lokal Anda.
 
-4. **Monitor Activity**
-   - Scroll ke bawah untuk lihat activity logs
-   - Semua aktivitas tercatat otomatis
-
----
-
-## 🐳 Docker Commands
-
-```bash
-# Start services
-docker-compose up -d
-
-# Stop services
-docker-compose down
-
-# View logs
-docker-compose logs -f api
-
-# Restart services
-docker-compose restart
-
-# Remove everything (including volumes)
-docker-compose down -v
-
-# Access database
-docker exec -it gymcloud-db psql -U postgres -d gymcloud_db
-```
-
----
-
-## 🔧 Troubleshooting
-
-### Database Connection Error
-```bash
-# Cek apakah PostgreSQL running
-docker-compose ps
-
-# Restart database
-docker-compose restart postgres
-```
-
-### Port Already in Use
-```bash
-# Cek port yang digunakan
-lsof -i :3000
-lsof -i :5432
-
-# Ganti port di docker-compose.yml atau .env
-```
-
-### Email Not Sending
-```bash
-# Email bersifat optional
-# Jika tidak dikonfigurasi, credential hanya muncul di response API
-# Untuk Gmail, gunakan App Password, bukan password biasa
-```
+### Email credential tidak terkirim
+Pengiriman email bersifat opsional. Jika variabel `EMAIL_USER` di file `.env` dikosongkan, sistem hanya akan melewati langkah ini dan tetap menganggap pembuatan cabang sukses.
 
 ---
 
 ## 📚 Tech Stack
 
-- **Backend:** Node.js + Express
-- **Database:** PostgreSQL 15
-- **Auth:** JWT (jsonwebtoken)
-- **Password:** bcrypt
-- **Email:** nodemailer
-- **Container:** Docker + Docker Compose
-- **Frontend:** Vanilla HTML/CSS/JavaScript
+Proyek ini dibangun murni di atas ekosistem Node.js:
+
+- **Backend Framework:** Node.js + Express.js
+- **Database:** PostgreSQL (dengan `pg`)
+- **Security & Auth:** JSON Web Token (`jsonwebtoken`) & `bcrypt`
+- **Infrastructure Automation:** Node.js File System (`fs.promises`)
+- **Email Service:** `nodemailer`
 
 ---
 
-## 🔐 Security Notes
+## 🔐 Security Notes & Kepatuhan Cloud
 
-1. **Production Checklist:**
-   - ✅ Ganti `JWT_SECRET` dengan random string yang kuat
-   - ✅ Update default Super Admin password
-   - ✅ Aktifkan HTTPS
-   - ✅ Set `NODE_ENV=production`
-   - ✅ Enable rate limiting
-   - ✅ Configure CORS properly
-
-2. **Password Policy:**
-   - Minimum 8 karakter
-   - Gunakan bcrypt untuk hashing
-   - Generated password untuk admin cabang: 12 karakter (mixed)
+- **Tenant Isolation:** Sistem secara absolut menolak permintaan silang (*cross-branch requests*) melalui validasi `branch_id` yang tertanam dalam token JWT yang diterbitkan saat login.
+- **Transaction Integrity:** Proses Create Branch dibungkus dengan perintah SQL `BEGIN` dan `COMMIT`. Apabila skrip OaC gagal di tengah jalan, seluruh entitas dicabut kembali (`ROLLBACK`).
+- **Environment Security:** Variabel kredensial tidak ditanam pada kode (di-hardcode), melainkan dilindungi menggunakan `dotenv`.
 
 ---
 
-## 📞 Support
+## 📞 Support & 📄 License
 
-Jika ada pertanyaan atau issues, silakan buat issue di repository atau hubungi tim development.
+Proyek akademik untuk Mini Project Cloud Computing (*IaaS / SaaS Implementation*).
 
----
+**Lisensi:** MIT License - Free to use and modify.
 
-## 📄 License
-
-MIT License - Free to use and modify
-
----
-
-**Happy Coding! 🚀**
+Happy Coding! 🚀
