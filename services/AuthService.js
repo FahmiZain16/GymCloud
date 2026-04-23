@@ -1,10 +1,10 @@
-const db = require('../config/database');
+const db = require('../database');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const LogService = require('./LogService');
 require('dotenv').config();
 
 class AuthService {
-  // Login
   static async login(email, password) {
     try {
       const result = await db.query(
@@ -13,9 +13,9 @@ class AuthService {
       );
 
       if (result.rows.length === 0) {
-        return { 
-          success: false, 
-          message: 'Email atau password salah' 
+        return {
+          success: false,
+          message: 'Invalid email or password'
         };
       }
 
@@ -23,26 +23,35 @@ class AuthService {
       const validPassword = await bcrypt.compare(password, user.password_hash);
 
       if (!validPassword) {
-        return { 
-          success: false, 
-          message: 'Email atau password salah' 
+        return {
+          success: false,
+          message: 'Invalid email or password'
         };
       }
 
       const token = jwt.sign(
-        { 
-          id: user.id, 
-          email: user.email, 
+        {
+          id: user.id,
+          email: user.email,
           role: user.role,
-          branch_id: user.branch_id 
+          branch_id: user.branch_id
         },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
 
+      LogService.createLog(
+        user.id,
+        user.branch_id,
+        'LOGIN',
+        `User ${user.name} (${user.email}) successfully logged into the system.`
+      ).catch(err =>
+        console.error('Warning: Failed to record login log:', err.message)
+      );
+
       return {
         success: true,
-        message: 'Login berhasil',
+        message: 'Login successful',
         data: {
           token,
           user: {
@@ -56,14 +65,14 @@ class AuthService {
       };
     } catch (error) {
       console.error('Error in login:', error);
-      return { 
-        success: false, 
-        message: 'Terjadi kesalahan saat login' 
+
+      return {
+        success: false,
+        message: 'An internal server error occurred during login'
       };
     }
   }
 
-  // Get user profile
   static async getProfile(userId) {
     try {
       const result = await db.query(
@@ -75,9 +84,9 @@ class AuthService {
       );
 
       if (result.rows.length === 0) {
-        return { 
-          success: false, 
-          message: 'User tidak ditemukan' 
+        return {
+          success: false,
+          message: 'User not found'
         };
       }
 
@@ -87,9 +96,10 @@ class AuthService {
       };
     } catch (error) {
       console.error('Error getting profile:', error);
-      return { 
-        success: false, 
-        message: 'Terjadi kesalahan saat mengambil profil' 
+
+      return {
+        success: false,
+        message: 'An error occurred while retrieving the profile'
       };
     }
   }

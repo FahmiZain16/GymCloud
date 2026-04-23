@@ -1,10 +1,9 @@
-const db = require('../config/database');
+const db = require('../database');
 
 class LogService {
-  // Create activity log
-  static async createLog(userId, branchId, action, description) {
+  static async createLog(userId, branchId, action, description, client = db) {
     try {
-      const result = await db.query(
+      const result = await client.query(
         `INSERT INTO activity_logs (user_id, branch_id, action, description) 
          VALUES ($1, $2, $3, $4) 
          RETURNING *`,
@@ -16,15 +15,11 @@ class LogService {
         data: result.rows[0]
       };
     } catch (error) {
-      console.error('Error creating log:', error);
-      return {
-        success: false,
-        message: 'Gagal mencatat aktivitas'
-      };
+      console.error('Error creating log:', error.message);
+      throw new Error(`Failed to record activity: ${error.message}`);
     }
   }
 
-  // Get all logs (for Super Admin)
   static async getAllLogs(limit = 100) {
     try {
       const result = await db.query(
@@ -46,14 +41,14 @@ class LogService {
       };
     } catch (error) {
       console.error('Error getting logs:', error);
+
       return {
         success: false,
-        message: 'Gagal mengambil log aktivitas'
+        message: 'Failed to retrieve activity logs'
       };
     }
   }
 
-  // Get logs by branch (for Branch Admin)
   static async getLogsByBranch(branchId, limit = 50) {
     try {
       const result = await db.query(
@@ -74,14 +69,14 @@ class LogService {
       };
     } catch (error) {
       console.error('Error getting branch logs:', error);
+
       return {
         success: false,
-        message: 'Gagal mengambil log aktivitas cabang'
+        message: 'Failed to retrieve branch activity logs'
       };
     }
   }
 
-  // Get logs by user
   static async getLogsByUser(userId, limit = 50) {
     try {
       const result = await db.query(
@@ -101,9 +96,10 @@ class LogService {
       };
     } catch (error) {
       console.error('Error getting user logs:', error);
+
       return {
         success: false,
-        message: 'Gagal mengambil log aktivitas user'
+        message: 'Failed to retrieve user activity logs'
       };
     }
   }
